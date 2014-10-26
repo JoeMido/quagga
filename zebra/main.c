@@ -81,6 +81,10 @@ struct option longopts[] =
 #ifdef HAVE_NETLINK
   { "nl-bufsize",  required_argument, NULL, 's'},
 #endif /* HAVE_NETLINK */
+#ifdef HAVE_FPM
+  { "fpm-port",    required_argument, NULL, 'p'},
+  { "fpm-address", required_argument, NULL, 'a'},
+#endif /* HAVE_FPM */
   { "user",        required_argument, NULL, 'u'},
   { "group",       required_argument, NULL, 'g'},
   { "version",     no_argument,       NULL, 'v'},
@@ -143,6 +147,10 @@ usage (char *progname, int status)
 #ifdef HAVE_NETLINK
       printf ("-s, --nl-bufsize   Set netlink receive buffer size\n");
 #endif /* HAVE_NETLINK */
+#ifdef HAVE_FPM
+      printf ("-p, --fpm-port     Set FPM server port\n");
+      printf ("-a, --fpm-address  Set FPM server address\n");
+#endif /* HAVE_FPM */
       printf ("-v, --version      Print program version\n"\
 	      "-h, --help         Display this help and exit\n"\
 	      "\n"\
@@ -218,6 +226,9 @@ main (int argc, char **argv)
   char *progname;
   struct thread thread;
   char *zserv_path = NULL;
+  uint16_t zfpm_server_port = 0;
+  in_addr_t zfpm_server_addr = INADDR_NONE;
+  int zfpm_enable = 0;
 
   /* Set umask before anything for security */
   umask (0027);
@@ -231,12 +242,19 @@ main (int argc, char **argv)
   while (1) 
     {
       int opt;
+      char optstr[255];
+      strcpy(optstr, "bdkf:i:z:hA:P:ru:g:vC");
   
 #ifdef HAVE_NETLINK  
-      opt = getopt_long (argc, argv, "bdkf:i:z:hA:P:ru:g:vs:C", longopts, 0);
-#else
-      opt = getopt_long (argc, argv, "bdkf:i:z:hA:P:ru:g:vC", longopts, 0);
+      strcat(optstr, "s:");
 #endif /* HAVE_NETLINK */
+
+#ifdef HAVE_FPM
+      /* options to define the fpm server address */
+      strcat(optstr, "a:p:");
+#endif /* HAVE_FPM */
+
+      opt = getopt_long (argc, argv, optstr, longopts, 0);
 
       if (opt == EOF)
 	break;
@@ -301,6 +319,18 @@ main (int argc, char **argv)
 	case 'h':
 	  usage (progname, 0);
 	  break;
+#ifdef HAVE_FPM
+	case 'a':
+	  zfpm_server_addr = inet_addr (optarg);
+	  if (zfpm_server_addr == INADDR_NONE) {
+	    zlog_err("Zebra failed to get FPM address: %s", strerror(errno));
+	    exit (1);
+	  }
+	  break;
+	case 'p':
+	  zfpm_server_port = strtoul (optarg, NULL, 0);
+	  break;
+#endif /* HAVE_FPM*/
 	default:
 	  usage (progname, 1);
 	  break;
@@ -348,10 +378,10 @@ main (int argc, char **argv)
 #endif /* HAVE_SNMP */
 
 #ifdef HAVE_FPM
-  zfpm_init (zebrad.master, 1, 0);
-#else
-  zfpm_init (zebrad.master, 0, 0);
-#endif
+  zfpm_enable = 1;
+#endif /* HAVE_FPM */
+
+  zfpm_init (zebrad.master, zfpm_enable, zfpm_server_port, zfpm_server_addr);
 
   /* Process the configuration file. Among other configuration
   *  directives we can meet those installing static routes. Such
