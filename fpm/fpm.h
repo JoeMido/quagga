@@ -89,6 +89,8 @@
 
 #define FPM_DEFAULT_PORT 2620
 
+#define FPM_DEFAULT_ADDR (htonl (INADDR_LOOPBACK))
+
 /*
  * Largest message that can be sent to or received from the FPM.
  */

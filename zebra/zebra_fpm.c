@@ -159,6 +159,11 @@ typedef struct zfpm_glob_t_
   int fpm_port;
 
   /*
+   * address on which the FPM is running.
+   */
+  in_addr_t fpm_address;
+
+  /*
    * List of rib_dest_t structures to be processed
    */
   TAILQ_HEAD (zfpm_dest_q, rib_dest_t_) dest_q;
@@ -1126,7 +1131,7 @@ zfpm_connect_cb (struct thread *t)
 #ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
   serv.sin_len = sizeof (struct sockaddr_in);
 #endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
-  serv.sin_addr.s_addr = htonl (INADDR_LOOPBACK);
+  serv.sin_addr.s_addr = zfpm_g->fpm_address;
 
   /*
    * Connect to the FPM.
@@ -1529,7 +1534,8 @@ DEFUN (clear_zebra_fpm_stats,
  * Returns TRUE on success.
  */
 int
-zfpm_init (struct thread_master *master, int enable, uint16_t port)
+zfpm_init (struct thread_master *master, int enable, uint16_t port,
+	   in_addr_t address)
 {
   static int initialized = 0;
 
@@ -1569,7 +1575,12 @@ zfpm_init (struct thread_master *master, int enable, uint16_t port)
   if (!port)
     port = FPM_DEFAULT_PORT;
 
+  if (!address) {
+    address = FPM_DEFAULT_ADDR;
+  }
+
   zfpm_g->fpm_port = port;
+  zfpm_g->fpm_address = address;
 
   zfpm_g->obuf = stream_new (ZFPM_OBUF_SIZE);
   zfpm_g->ibuf = stream_new (ZFPM_IBUF_SIZE);
